@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MapTap Crew Leaderboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EAF1F4; --surface:#FFFFFF; --ink:#12263F; --muted:#5A6B7E; --line:#D3DEE5;
+  --sea:#1F6F8B; --sea-soft:#D7EAF0; --pin:#E4A21B; --pin-ink:#3B2800; --bad:#B4372F;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1B2A; --surface:#14273B; --ink:#E6EEF4; --muted:#93A6B8; --line:#24405A;
+    --sea:#5FB4CF; --sea-soft:#1B3A52; --pin:#F2B53A; --pin-ink:#2A1C00; --bad:#F07A6F;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1B2A; --surface:#14273B; --ink:#E6EEF4; --muted:#93A6B8; --line:#24405A;
+  --sea:#5FB4CF; --sea-soft:#1B3A52; --pin:#F2B53A; --pin-ink:#2A1C00; --bad:#F07A6F;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Figtree,system-ui,-apple-system,"Segoe UI",sans-serif;
+  background-image:repeating-linear-gradient(0deg,transparent 0 47px,var(--line) 47px 48px),repeating-linear-gradient(90deg,transparent 0 47px,var(--line) 47px 48px);
+  background-attachment:fixed}
+main{max-width:620px;margin:0 auto;padding:20px 16px 48px}
+h1{font-family:"Bricolage Grotesque",Figtree,system-ui,sans-serif;font-weight:800;font-size:clamp(2rem,8vw,2.8rem);line-height:1;margin:8px 0 4px;letter-spacing:-.02em}
+.sub{color:var(--muted);margin:0 0 20px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:16px}
+h2{font-family:"Bricolage Grotesque",Figtree,sans-serif;font-weight:800;font-size:1.25rem;margin:0 0 12px}
+label{display:block;font-weight:600;font-size:.9rem;margin:10px 0 4px}
+input,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+textarea{min-height:110px;resize:vertical}
+input:focus-visible,textarea:focus-visible,button:focus-visible{outline:3px solid var(--pin);outline-offset:2px}
+button{font:inherit;font-weight:600;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:9px 14px}
+button.primary{background:var(--sea);border-color:var(--sea);color:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) button.primary{color:#06202B}}
+:root[data-theme="dark"] button.primary{color:#06202B}
+button:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.preview{margin-top:10px;font-size:.95rem;color:var(--muted)}
+.preview strong{color:var(--ink)}
+.msg{margin-top:10px;font-size:.92rem}
+.msg.err{color:var(--bad)}
+.tabs{display:flex;gap:6px;margin-bottom:14px;background:var(--bg);padding:4px;border-radius:12px}
+.tabs button{flex:1;border:none;background:transparent}
+.tabs button[aria-selected="true"]{background:var(--surface);box-shadow:0 1px 0 var(--line)}
+.daynav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.daynav strong{font-family:"Bricolage Grotesque",sans-serif;font-size:1.1rem}
+ol.board{list-style:none;margin:0;padding:0}
+ol.board li{display:grid;grid-template-columns:2.2rem 1fr auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+ol.board li:first-child{border-top:none}
+.rank{width:2rem;height:2rem;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:grid;place-items:center;background:var(--sea-soft);font-weight:700}
+.rank span{transform:rotate(45deg)}
+li.first .rank{background:var(--pin);color:var(--pin-ink)}
+.name{font-weight:600;overflow-wrap:anywhere}
+.meta{font-size:.85rem;color:var(--muted)}
+.score{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:1.5rem;text-align:right}
+.bars{display:flex;gap:3px;margin-top:4px}
+.bars i{display:block;width:22px;height:6px;border-radius:3px;background:var(--line);overflow:hidden;position:relative}
+.bars i b{position:absolute;inset:0 auto 0 0;background:var(--sea)}
+.empty{color:var(--muted);padding:12px 0}
+.mine{font-size:.8rem;color:var(--bad);background:none;border:none;padding:0;text-decoration:underline}
+@media (prefers-reduced-motion:no-preference){ol.board li.first .rank{animation:drop .5s ease-out}}
+@keyframes drop{from{transform:rotate(-45deg) translate(-8px,-8px);opacity:0}}
+</style>
+</head>
+<body>
+<main>
+  <h1>MapTap Crew</h1>
+  <p class="sub">Paste your daily share text and see who tapped closest.</p>
+
+  <section class="panel" id="post">
+    <h2>Post a score</h2>
+    <div id="postBody">
+      <label for="nick">Your name on the board</label>
+      <input id="nick" maxlength="24" autocomplete="nickname" placeholder="e.g. Sam">
+      <label for="share">Share text from maptap.gg</label>
+      <textarea id="share" placeholder="www.maptap.gg October 15&#10;98🎯 92🏆 95🏅 87🎓 100🎯&#10;Final score: 943"></textarea>
+      <div class="preview" id="preview">Paste above, or just type a number like 912.</div>
+      <div class="row" style="margin-top:12px"><button class="primary" id="postBtn" disabled>Post score</button></div>
+      <div class="msg" id="postMsg" role="status"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="day" aria-selected="true">Day</button>
+      <button role="tab" data-tab="month" aria-selected="false">Month</button>
+      <button role="tab" data-tab="all" aria-selected="false">All time</button>
+    </div>
+    <div class="daynav">
+      <button id="prev" aria-label="Previous">‹</button>
+      <strong id="periodLabel"></strong>
+      <button id="next" aria-label="Next">›</button>
+    </div>
+    <ol class="board" id="board"><li class="empty" style="display:block">Loading scores…</li></ol>
+  </section>
+</main>
+
+<script>
+// ====== PASTE YOUR SUPABASE DETAILS HERE ======
+const SUPABASE_URL="https://mtwdnmxsjfonzgdjwbsv.supabase.co/rest/v1/";
+const SUPABASE_ANON_KEY="sb_publishable_W2EtExKOsMDraQwzkBWnZw_NpJrW3sd";
+// ==============================================
+
+const MONTHS=["january","february","march","april","may","june","july","august","september","october","november","december"];
+const pad=n=>String(n).padStart(2,"0");
+const keyOf=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const fromKey=k=>{const[y,m,d]=k.split("-").map(Number);return new Date(y,m-1,d)};
+const $=id=>document.getElementById(id);
+
+let sb=null,players={},tab="day",cursor=new Date();cursor.setHours(0,0,0,0);
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+const myName=()=>$("nick").value.trim().slice(0,24);
+
+function parseShare(text){
+  const t=(text||"").replace(/\r/g,"").trim();
+  if(/^\d{1,4}$/.test(t)) return {score:+t,date:keyOf(new Date()),rounds:[]};
+  const fm=t.match(/final score:\s*(\d{1,4})/i);
+  const dm=t.match(/maptap\.gg\s+([A-Za-z]+)\.?\s+(\d{1,2})/i);
+  let date=keyOf(new Date()),rounds=[];
+  if(dm){
+    const mi=MONTHS.findIndex(m=>m.startsWith(dm[1].toLowerCase().slice(0,3)));
+    if(mi>=0){const now=new Date();let d=new Date(now.getFullYear(),mi,+dm[2]);if(d-now>2*864e5)d=new Date(now.getFullYear()-1,mi,+dm[2]);date=keyOf(d)}
+  }
+  if(fm){
+    const start=dm?t.indexOf(dm[0])+dm[0].length:0,end=t.search(/final score/i);
+    rounds=(t.slice(start,end).match(/\d{1,3}/g)||[]).map(Number).filter(n=>n<=100).slice(0,5);
+  }
+  return {score:fm?+fm[1]:null,date,rounds};
+}
+const fmtDay=k=>fromKey(k).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
+
+function updatePreview(){
+  const p=parseShare($("share").value);
+  $("postBtn").disabled=!(sb&&p.score!==null&&p.score<=1000&&myName());
+  if(!$("share").value.trim()){$("preview").textContent="Paste above, or just type a number like 912.";return}
+  if(p.score===null||p.score>1000){$("preview").textContent="Couldn't find a score. Make sure “Final score: …” is included.";return}
+  $("preview").textContent="Posting "+p.score+" for "+fmtDay(p.date)+(p.rounds.length?" · rounds "+p.rounds.join(", "):"");
+}
+
+async function load(){
+  if(!sb)return;
+  const {data,error}=await sb.from("scores").select("name,day,score,rounds").order("day",{ascending:false}).limit(5000);
+  if(error){$("board").innerHTML='<li class="empty" style="display:block">Couldn\'t load scores. Check the Supabase setup.</li>';return}
+  players={};
+  data.forEach(r=>{(players[r.name]??={days:{}}).days[r.day]={score:r.score,rounds:r.rounds||[]}});
+  render();
+}
+
+async function post(){
+  const p=parseShare($("share").value),name=myName();
+  if(p.score===null||!name)return;
+  store.set("maptap-name",name);
+  $("postBtn").disabled=true;$("postMsg").className="msg";$("postMsg").textContent="Posting…";
+  const {error}=await sb.from("scores").upsert({name,day:p.date,score:p.score,rounds:p.rounds},{onConflict:"name,day"});
+  if(error){$("postMsg").className="msg err";$("postMsg").textContent="Couldn't post: "+error.message}
+  else{$("postMsg").textContent="Posted "+p.score+" for "+fmtDay(p.date)+".";$("share").value="";tab="day";cursor=fromKey(p.date);syncTabs();await load()}
+  updatePreview();
+}
+
+async function removeMine(day){
+  await sb.from("scores").delete().eq("name",myName()).eq("day",day);
+  load();
+}
+
+function rows(){
+  const ids=Object.keys(players);
+  if(tab==="day"){
+    const k=keyOf(cursor);
+    return ids.filter(id=>players[id].days[k]).map(id=>({id,score:players[id].days[k].score,rounds:players[id].days[k].rounds,day:k})).sort((a,b)=>b.score-a.score);
+  }
+  const wins={},allDays=new Set();
+  ids.forEach(id=>Object.keys(players[id].days).forEach(d=>allDays.add(d)));
+  allDays.forEach(d=>{let best=-1,who=[];ids.forEach(id=>{const e=players[id].days[d];if(!e)return;if(e.score>best){best=e.score;who=[id]}else if(e.score===best)who.push(id)});who.forEach(w=>wins[w]=(wins[w]||0)+1)});
+  if(tab==="month"){
+    const pref=cursor.getFullYear()+"-"+pad(cursor.getMonth()+1);
+    return ids.map(id=>{const ds=Object.entries(players[id].days).filter(([d])=>d.startsWith(pref));
+      if(!ds.length)return null;const tot=ds.reduce((s,[,e])=>s+e.score,0);
+      return {id,score:tot,meta:ds.length+" day"+(ds.length===1?"":"s")+" · avg "+Math.round(tot/ds.length)}}).filter(Boolean).sort((a,b)=>b.score-a.score);
+  }
+  return ids.map(id=>{const ds=Object.values(players[id].days);if(!ds.length)return null;
+    const tot=ds.reduce((s,e)=>s+e.score,0),best=Math.max(...ds.map(e=>e.score)),w=wins[id]||0;
+    return {id,score:Math.round(tot/ds.length),meta:ds.length+" days · best "+best+" · "+w+" daily win"+(w===1?"":"s")}}).filter(Boolean).sort((a,b)=>b.score-a.score);
+}
+
+function render(){
+  $("prev").style.visibility=$("next").style.visibility=tab==="all"?"hidden":"visible";
+  const lbl=$("periodLabel");
+  if(tab==="day")lbl.textContent=keyOf(cursor)===keyOf(new Date())?"Today":fmtDay(keyOf(cursor));
+  else if(tab==="month")lbl.textContent=cursor.toLocaleDateString(undefined,{month:"long",year:"numeric"})+" total";
+  else lbl.textContent="Average score";
+  const r=rows(),ol=$("board"),me=myName();
+  ol.innerHTML="";
+  if(!r.length){const li=document.createElement("li");li.className="empty";li.style.display="block";li.textContent=tab==="day"?"No scores for this day yet. Be the first to post.":"No scores in this period yet.";ol.appendChild(li);return}
+  let prevScore=null,rank=0;
+  r.forEach((x,i)=>{
+    if(x.score!==prevScore){rank=i+1;prevScore=x.score}
+    const li=document.createElement("li");if(rank===1)li.className="first";
+    li.innerHTML='<div class="rank"><span></span></div><div><div class="name"></div><div class="meta"></div></div><div class="score"></div>';
+    li.querySelector(".rank span").textContent=rank;
+    li.querySelector(".name").textContent=x.id+(x.id===me?" (you)":"");
+    li.querySelector(".score").textContent=x.score;
+    const meta=li.querySelector(".meta");
+    if(x.rounds&&x.rounds.length){const b=document.createElement("div");b.className="bars";x.rounds.forEach(v=>{const i2=document.createElement("i");i2.title=v;const f=document.createElement("b");f.style.width=v+"%";i2.appendChild(f);b.appendChild(i2)});meta.appendChild(b)}
+    else if(x.meta)meta.textContent=x.meta;
+    if(tab==="day"&&x.id===me){const rm=document.createElement("button");rm.className="mine";rm.textContent="Remove my score";rm.onclick=()=>removeMine(x.day);meta.appendChild(rm)}
+    ol.appendChild(li);
+  });
+}
+
+function syncTabs(){document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===tab))}
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;syncTabs();render()});
+$("prev").onclick=()=>{tab==="day"?cursor.setDate(cursor.getDate()-1):cursor.setMonth(cursor.getMonth()-1,1);render()};
+$("next").onclick=()=>{tab==="day"?cursor.setDate(cursor.getDate()+1):cursor.setMonth(cursor.getMonth()+1,1);render()};
+$("share").addEventListener("input",updatePreview);
+$("nick").addEventListener("input",()=>{updatePreview();render()});
+$("postBtn").onclick=post;
+
+$("nick").value=store.get("maptap-name")||"";
+if(SUPABASE_URL.includes("YOUR-PROJECT")||!window.supabase){
+  $("board").innerHTML='<li class="empty" style="display:block">Add your Supabase URL and key at the top of the script in index.html.</li>';
+}else{
+  sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+  load();setInterval(()=>{if(!document.hidden)load()},30000);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)load()});
+}
+updatePreview();
+</script>
+</body>
+</html>
