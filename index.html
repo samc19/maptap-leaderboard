@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>MapTap Crew Leaderboard</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1F6F8B">
+<link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -88,7 +91,7 @@ li.first .rank{background:var(--pin);color:var(--pin-ink)}
       <label for="share">Share text from maptap.gg</label>
       <textarea id="share" placeholder="www.maptap.gg October 15&#10;98🎯 92🏆 95🏅 87🎓 100🎯&#10;Final score: 943"></textarea>
       <div class="preview" id="preview">Paste above, or just type a number like 912.</div>
-      <div class="row" style="margin-top:12px"><button class="primary" id="postBtn" disabled>Post score</button></div>
+      <div class="row" style="margin-top:12px"><button class="primary" id="postBtn" disabled>Post score</button><button id="clipBtn">Paste from clipboard &amp; post</button></div>
       <div class="msg" id="postMsg" role="status"></div>
     </div>
   </section>
@@ -110,7 +113,7 @@ li.first .rank{background:var(--pin);color:var(--pin-ink)}
 
 <script>
 // ====== PASTE YOUR SUPABASE DETAILS HERE ======
-const SUPABASE_URL="https://mtwdnmxsjfonzgdjwbsv.supabase.co/rest/v1/";
+const SUPABASE_URL="https://mtwdnmxsjfonzgdjwbsv.supabase.co";
 const SUPABASE_ANON_KEY="sb_publishable_W2EtExKOsMDraQwzkBWnZw_NpJrW3sd";
 // ==============================================
 
@@ -237,6 +240,28 @@ if(SUPABASE_URL.includes("YOUR-PROJECT")||!window.supabase){
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)load()});
 }
 updatePreview();
+
+// --- One-tap posting: share sheet / Shortcut (?text=...) and clipboard ---
+async function postIfReady(src){
+  updatePreview();
+  const p=parseShare($("share").value);
+  if(p.score===null){$("postMsg").className="msg err";$("postMsg").textContent="That "+src+" didn't contain a MapTap score.";return}
+  if(!myName()){$("postMsg").className="msg";$("postMsg").textContent="Enter your name, then tap Post score. Next time it'll post automatically.";$("nick").focus();return}
+  if(sb)post();
+}
+(function handleIncomingShare(){
+  const q=new URLSearchParams(location.search);
+  const incoming=["title","text","url"].map(k=>q.get(k)||"").join("\n").trim();
+  if(!incoming)return;
+  history.replaceState(null,"",location.pathname);
+  $("share").value=incoming;
+  postIfReady("share");
+})();
+$("clipBtn").onclick=async()=>{
+  try{$("share").value=await navigator.clipboard.readText();postIfReady("clipboard text")}
+  catch(e){$("postMsg").className="msg err";$("postMsg").textContent="Your browser blocked clipboard access. Long-press the box above and paste instead."}
+};
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body>
 </html>
